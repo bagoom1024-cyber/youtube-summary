@@ -10,20 +10,21 @@
 <style>
 :root{
   --bg:#f6f5f2; --surface:#fff; --ink:#1b1b1a; --muted:#6c6a66; --line:#e6e3dd;
-  --accent:#d6402b; --accent-soft:#fbe9e5; --chip:#efece6;
+  --accent:#d6402b; --accent-soft:#fbe9e5; --chip:#efece6; --read:#e4e1da; --gold:#d99a00;
 }
 @media (prefers-color-scheme:dark){:root{
   --bg:#121212; --surface:#1c1c1b; --ink:#ecebe8; --muted:#9c9a95; --line:#2c2b29;
-  --accent:#ff6b55; --accent-soft:#3a1f1a; --chip:#262624;
+  --accent:#ff6b55; --accent-soft:#3a1f1a; --chip:#262624; --read:#0b0b0b; --gold:#f5c04a;
 }}
 *{box-sizing:border-box}
+[hidden]{display:none!important}
 html{-webkit-text-size-adjust:100%}
 body{margin:0;background:var(--bg);color:var(--ink);
   font-family:"Pretendard Variable",Pretendard,-apple-system,"Apple SD Gothic Neo","Malgun Gothic",sans-serif;
   line-height:1.6;word-break:keep-all;overflow-wrap:anywhere}
 a{color:inherit}
 .wrap{max-width:760px;margin:0 auto;padding:0 16px 80px}
-header{position:sticky;top:0;z-index:5;background:color-mix(in srgb,var(--bg) 92%,transparent);
+header{position:relative;background:color-mix(in srgb,var(--bg) 92%,transparent);
   backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border-bottom:1px solid var(--line)}
 .head{max-width:760px;margin:0 auto;padding:14px 16px 10px}
 .top{display:flex;align-items:center;justify-content:space-between;gap:12px}
@@ -37,9 +38,9 @@ h1 b{color:var(--accent)}
 .upd .n{color:var(--accent)}
 .search{margin-top:10px;width:100%;padding:10px 14px;border-radius:12px;border:1px solid var(--line);
   background:var(--surface);color:var(--ink);font:inherit;font-size:15px}
-.chips{display:flex;gap:6px;overflow-x:auto;padding:10px 0 2px;scrollbar-width:none}
+.chips{display:flex;flex-wrap:wrap;gap:6px;padding:10px 0 2px}
 .chips::-webkit-scrollbar{display:none}
-.chip{flex:none;border:0;border-radius:999px;padding:6px 12px;background:var(--chip);color:var(--ink);
+.chip{border:0;border-radius:999px;padding:6px 12px;background:var(--chip);color:var(--ink);
   font:inherit;font-size:13px;cursor:pointer}
 .chip.on{background:var(--ink);color:var(--bg)}
 .day{font-size:13px;font-weight:700;color:var(--muted);margin:26px 2px 10px}
@@ -81,8 +82,22 @@ h1 b{color:var(--accent)}
 .redo{display:none}
 body.live .redo{display:inline-block}
 .card.flash{outline:2px solid var(--accent);outline-offset:-1px}
+.card.read{background:var(--read);border-color:transparent}
+.card.read .title,.card.read .one,.card.read .ch{opacity:.55}
+.card.read .thumb img{filter:grayscale(.6) brightness(.85)}
+.marks{flex:none;display:flex;flex-direction:column;gap:6px}
+.mk{border:1px solid var(--line);background:var(--surface);color:var(--muted);border-radius:9px;padding:5px 9px;
+  font:inherit;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap}
+.mk.on[data-mark="read"]{background:var(--ink);border-color:var(--ink);color:var(--bg)}
+.mk.on[data-mark="save"]{background:var(--gold);border-color:var(--gold);color:#fff}
+.savedBtn{border:1px solid var(--line);background:var(--surface);color:var(--ink);border-radius:999px;padding:5px 11px;
+  font:inherit;font-size:12.5px;font-weight:600;cursor:pointer;white-space:nowrap}
+.savedBtn.on{background:var(--gold);border-color:var(--gold);color:#fff}
+.viewbar{display:none;align-items:center;justify-content:space-between;margin-top:18px;font-weight:700}
+.viewbar.on{display:flex}
 @media (max-width:520px){
   .row{flex-direction:column;gap:10px;padding:12px}
+  .marks{flex-direction:row}
   .thumb{width:100%}
   .title{font-size:16px}
 }
@@ -91,7 +106,7 @@ body.live .redo{display:inline-block}
 <body>
 <header><div class="head">
   <div class="top"><h1>내 유튜브 요약<b>.</b></h1>
-    <div class="topr"><span class="updated" id="updated"></span><button class="upd" id="updBtn" hidden>↻ 새 영상 업데이트</button></div></div>
+    <div class="topr"><span class="updated" id="updated"></span><button class="savedBtn" id="syncBtn" title="PC·폰 읽음/저장 표시 맞추기">☁ 동기화</button><button class="savedBtn" id="savedBtn">★ 저장 영상</button><button class="upd" id="updBtn" hidden>↻ 새 영상 업데이트</button></div></div>
   <form class="add" id="add" hidden>
     <input id="addUrl" type="url" inputmode="url" placeholder="유튜브 링크 붙여넣기" required>
     <button class="btn primary" id="addBtn">요약</button>
@@ -101,14 +116,26 @@ body.live .redo{display:inline-block}
   <div class="chips" id="chips"></div>
 </div></header>
 <main class="wrap" id="list"></main>
+<div class="wrap" style="text-align:center;padding-bottom:30px"><button class="mk" id="syncSetup">☁ 동기화 설정</button></div>
 
-<script src="list.js"></script>
+<script src="list.js?v=20261013214454"></script>
 <script>
 (function(){
   const V = window.VIDEOS || [], M = window.META || {};
   const $ = s => document.querySelector(s);
   const esc = s => String(s||"").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
-  let channel = "전체", query = "";
+  let channel = "전체", query = "", view = "all";
+
+  // 읽음·저장 표시는 이 기기의 브라우저에 저장돼요 (PC와 폰은 따로)
+  function loadSet(k){ try{ return new Set(JSON.parse(localStorage.getItem(k) || "[]")); }catch(e){ return new Set(); } }
+  function saveSet(k, set){ try{ localStorage.setItem(k, JSON.stringify([...set])); }catch(e){} }
+  const READ = loadSet("yt_read"), SAVED = loadSet("yt_saved");
+  const isRead = id => READ.has(id), isSaved = id => SAVED.has(id);
+  function updSavedBtn(){
+    const n = V.filter(v => SAVED.has(v.id)).length;
+    $("#savedBtn").textContent = view === "saved" ? "← 전체 보기" : `★ 저장 영상${n ? " " + n : ""}`;
+    $("#savedBtn").classList.toggle("on", view === "saved");
+  }
   $("#updated").textContent = M.updated ? "업데이트 " + M.updated : "";
 
   const channels = ["전체", ...new Set(V.map(v => v.channel).filter(Boolean))];
@@ -120,6 +147,72 @@ body.live .redo{display:inline-block}
     render();
   });
   $("#q").addEventListener("input", e => { query = e.target.value.trim().toLowerCase(); render(); });
+
+  // ===== PC·폰 동기화 (구글 시트 웹 앱) =====
+  const getLS = k => { try{ return localStorage.getItem(k) || ""; }catch(e){ return ""; } };
+  const setLS = (k, v) => { try{ v ? localStorage.setItem(k, v) : localStorage.removeItem(k); }catch(e){} };
+  let syncUrl = getLS("yt_sync_url");
+  let pending = (() => { try{ return JSON.parse(getLS("yt_pending") || "[]"); }catch(e){ return []; } })();
+  let syncing = false, timer = null;
+  const savePending = () => setLS("yt_pending", pending.length ? JSON.stringify(pending) : "");
+  const syncLabel = t => { $("#syncBtn").textContent = t; $("#syncBtn").hidden = !syncUrl; };
+  function queue(id, kind, on){
+    if(!syncUrl) return;
+    pending = pending.filter(c => !(c.id === id && c.kind === kind)); pending.push({id, kind, on});
+    savePending(); clearTimeout(timer); timer = setTimeout(sync, 800);
+  }
+  async function call(changes){
+    const q = changes ? "op=apply&changes=" + encodeURIComponent(JSON.stringify(changes)) : "op=list";
+    const r = await fetch(syncUrl + (syncUrl.includes("?") ? "&" : "?") + q + "&t=" + Date.now());
+    const j = await r.json(); if(!j.ok) throw new Error(j.error || "오류"); return j;
+  }
+  function refreshMarks(){
+    if(view === "saved") return render();
+    document.querySelectorAll(".card").forEach(c => {
+      const id = c.dataset.id, r = READ.has(id), s = SAVED.has(id);
+      c.classList.toggle("read", r);
+      const rb = c.querySelector('[data-mark="read"]'), sb = c.querySelector('[data-mark="save"]');
+      if(rb){ rb.classList.toggle("on", r); rb.textContent = r ? "✓ 읽음" : "읽음"; }
+      if(sb){ sb.classList.toggle("on", s); sb.textContent = s ? "★ 저장됨" : "☆ 저장"; }
+    });
+    updSavedBtn();
+  }
+  async function sync(){
+    if(!syncUrl || syncing) return;
+    syncing = true; syncLabel("☁ 동기화 중…");
+    try{
+      if(!getLS("yt_synced_once")){   // 처음 연결: 이 기기의 표시를 모두 올려서 합치기
+        [...READ].forEach(id => pending.push({id, kind:"read", on:true}));
+        [...SAVED].forEach(id => pending.push({id, kind:"save", on:true}));
+      }
+      let j = null;
+      while(pending.length){
+        const chunk = pending.slice(0, 40);
+        j = await call(chunk);
+        pending = pending.slice(chunk.length); savePending();
+      }
+      if(!j) j = await call(null);
+      setLS("yt_synced_once", "1");
+      READ.clear(); j.read.forEach(id => READ.add(id)); saveSet("yt_read", READ);
+      SAVED.clear(); j.saved.forEach(id => SAVED.add(id)); saveSet("yt_saved", SAVED);
+      refreshMarks();
+      syncLabel("☁ 동기화됨");
+    }catch(e){
+      syncLabel("☁ 동기화 오류");
+    }finally{ syncing = false; }
+  }
+  $("#syncBtn").addEventListener("click", sync);
+  $("#syncSetup").addEventListener("click", () => {
+    const u = prompt("구글 Apps Script 웹 앱 주소를 붙여넣으세요 (…/exec).\n비워두고 확인을 누르면 이 기기의 동기화를 끕니다.", syncUrl);
+    if(u === null) return;
+    const v = u.trim();
+    if(v && !/^https:\/\/script\.google(usercontent)?\.com\//.test(v)){ alert("구글 Apps Script 웹 앱 주소가 아니에요."); return; }
+    syncUrl = v; setLS("yt_sync_url", v); setLS("yt_synced_once", "");
+    if(v){ syncLabel("☁ 동기화"); sync(); } else { syncLabel(""); }
+  });
+  document.addEventListener("visibilitychange", () => { if(document.visibilityState === "visible") sync(); });
+  syncLabel("☁ 동기화");
+  $("#savedBtn").addEventListener("click", () => { view = view === "saved" ? "all" : "saved"; updSavedBtn(); render(); window.scrollTo(0, 0); });
 
   function dayLabel(iso){
     if(!iso) return "직접 요청한 영상";
@@ -144,7 +237,7 @@ body.live .redo{display:inline-block}
     return out;
   }
   function card(v){
-    return `<article class="card" data-id="${esc(v.id)}">
+    return `<article class="card${isRead(v.id)?" read":""}" data-id="${esc(v.id)}">
       <div class="row">
         <a class="thumb" href="${esc(v.url)}" target="_blank" rel="noopener" onclick="event.stopPropagation()">
           <img loading="lazy" src="${esc(v.thumb)}" alt="">${v.short?'<span class="badge">Shorts</span>':""}
@@ -153,6 +246,10 @@ body.live .redo{display:inline-block}
           <div class="ch"><span>${esc(v.channel)}</span>${v.requested?'<span class="req">· 요청</span>':""}</div>
           <div class="title">${esc(v.title)}</div>
           <p class="one">${esc(v.one)}</p>
+        </div>
+        <div class="marks">
+          <button class="mk${isRead(v.id)?" on":""}" data-mark="read">${isRead(v.id)?"✓ 읽음":"읽음"}</button>
+          <button class="mk${isSaved(v.id)?" on":""}" data-mark="save">${isSaved(v.id)?"★ 저장됨":"☆ 저장"}</button>
         </div>
       </div>
       <div class="more">
@@ -169,10 +266,12 @@ body.live .redo{display:inline-block}
     </article>`;
   }
   function render(){
-    const list = V.filter(v => (channel==="전체" || v.channel===channel) &&
+    updSavedBtn();
+    const list = V.filter(v => (view !== "saved" || SAVED.has(v.id)) && (channel==="전체" || v.channel===channel) &&
       (!query || (v.title+" "+v.one+" "+v.summary+" "+v.points.join(" ")).toLowerCase().includes(query)));
-    if(!list.length){ $("#list").innerHTML = '<div class="empty">표시할 영상이 없어요.</div>'; return; }
-    let html = "", last = null;
+    const bar = view === "saved" ? `<div class="viewbar on"><span>★ 저장한 영상 ${list.length}개</span></div>` : "";
+    if(!list.length){ $("#list").innerHTML = bar + `<div class="empty">${view === "saved" ? "저장한 영상이 없어요. 영상 옆의 ☆ 저장을 눌러보세요." : "표시할 영상이 없어요."}</div>`; return; }
+    let html = bar, last = null;
     for(const v of list){
       const d = dayLabel(v.published);
       if(d !== last){ html += `<div class="day">${d}</div>`; last = d; }
@@ -185,6 +284,21 @@ body.live .redo{display:inline-block}
   const waiting = {};
   window.__T = (id, text) => { const el = document.getElementById("s-"+id); if(el){ el.textContent = text; } (waiting[id]||[]).forEach(f=>f()); };
   $("#list").addEventListener("click", e => {
+    const mk = e.target.closest("[data-mark]");
+    if(mk){
+      const cardEl = mk.closest(".card"), id = cardEl.dataset.id;
+      if(mk.dataset.mark === "read"){
+        READ.has(id) ? READ.delete(id) : READ.add(id); saveSet("yt_read", READ);
+        const on = READ.has(id); queue(id, "read", on);
+        cardEl.classList.toggle("read", on); mk.classList.toggle("on", on); mk.textContent = on ? "✓ 읽음" : "읽음";
+      } else {
+        SAVED.has(id) ? SAVED.delete(id) : SAVED.add(id); saveSet("yt_saved", SAVED);
+        const on = SAVED.has(id); queue(id, "save", on);
+        mk.classList.toggle("on", on); mk.textContent = on ? "★ 저장됨" : "☆ 저장";
+        if(view === "saved" && !on) render(); else updSavedBtn();
+      }
+      return;
+    }
     const sb = e.target.closest("[data-script]");
     if(sb){
       const id = sb.closest(".card").dataset.id, box = document.getElementById("s-"+id);
@@ -205,6 +319,7 @@ body.live .redo{display:inline-block}
     if(row) row.parentElement.classList.toggle("open");
   });
   render();
+  sync();
 
   // 방금 요약한 영상으로 이동
   function focusHash(){
@@ -215,7 +330,7 @@ body.live .redo{display:inline-block}
   focusHash();
 
   // 링크 넣어서 요약 (open_site.bat 으로 열었을 때만 동작)
-  if(location.protocol.startsWith("http")){
+  if(["localhost","127.0.0.1"].includes(location.hostname)){
     const form = $("#add"), input = $("#addUrl"), btn = $("#addBtn"), st = $("#status"), upd = $("#updBtn");
     form.hidden = false; upd.hidden = false; document.body.classList.add("live");
     if(M.pending) upd.innerHTML = `↻ 새 영상 업데이트 <span class="n">· 대기 ${M.pending}</span>`;
